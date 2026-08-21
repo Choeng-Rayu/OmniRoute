@@ -176,15 +176,14 @@ ENV OMNIROUTE_MITM_STUB=1
 # what a 14-15 GB host with ~7 GB available can sustain. The previous 8 GB heap
 # plus 12 parallel terser workers (one per CPU) overshot available RAM and the
 # kernel OOM-killed the build worker (SIGKILL, exit code 137/255) after ~7 min.
-ARG OMNIROUTE_BUILD_MEMORY_MB=6144
+ARG OMNIROUTE_BUILD_MEMORY_MB=4096
 ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 
-# Limit webpack/terser build parallelism. With 12 cores the default spawns 12
-# parallel terser workers (~500 MB each = 6 GB) on top of the module graph,
-# exceeding available RAM on memory-constrained hosts → OOM SIGKILL. 2 workers
-# keeps peak RSS bounded; override with `--build-arg NEXT_BUILD_CPUS=4` on
-# machines with more RAM.
-ARG NEXT_BUILD_CPUS=2
+# Limit webpack/terser build parallelism. Each worker needs ~500 MB; on
+# memory-constrained hosts (8 GB RAM, ~5 GB available) multiple workers push
+# peak RSS past available RAM → OOM SIGKILL. 1 worker keeps peak RSS bounded;
+# override with `--build-arg NEXT_BUILD_CPUS=2` on machines with more RAM.
+ARG NEXT_BUILD_CPUS=1
 ENV NEXT_BUILD_CPUS=${NEXT_BUILD_CPUS}
 
 COPY . ./
