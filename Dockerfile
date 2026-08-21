@@ -176,12 +176,18 @@ ENV OMNIROUTE_MITM_STUB=1
 # what a 14-15 GB host with ~7 GB available can sustain. The previous 8 GB heap
 # plus 12 parallel terser workers (one per CPU) overshot available RAM and the
 # kernel OOM-killed the build worker (SIGKILL, exit code 137/255) after ~7 min.
-ARG OMNIROUTE_BUILD_MEMORY_MB=4096
+# The webpack production pass peaks at ~3.9 GB V8 heap; the SWC native binary
+# (next-swc) allocates additional memory outside V8's heap tracking. On an
+# 8 GB host with ~5.5 GB available, the 4 GB ceiling is too tight — the
+# process hits "JavaScript heap out of memory" after ~11 min of compilation.
+# 5 GB gives headroom while still fitting in available RAM. Override with
+# `--build-arg OMNIROUTE_BUILD_MEMORY_MB=6144`.
+ARG OMNIROUTE_BUILD_MEMORY_MB=5120
 ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 
 # Limit webpack/terser build parallelism. Each worker needs ~500 MB; on
 # memory-constrained hosts (8 GB RAM, ~5 GB available) multiple workers push
-# peak RSS past available RAM → OOM SIGKILL. 1 worker keeps peak RSS bounded;
+# peak RSS past available RAM → OOM. 1 worker keeps peak RSS bounded;
 # override with `--build-arg NEXT_BUILD_CPUS=2` on machines with more RAM.
 ARG NEXT_BUILD_CPUS=1
 ENV NEXT_BUILD_CPUS=${NEXT_BUILD_CPUS}
