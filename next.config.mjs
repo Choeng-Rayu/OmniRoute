@@ -193,6 +193,13 @@ const nextConfig = {
     webpackMemoryOptimizations: true,
     // Run webpack in a separate Node worker, lowering main-process memory.
     webpackBuildWorker: true,
+    // Limit build parallelism. webpack/terser spawn one worker per CPU for
+    // minification; on a 12-core box that is 12 × ~500 MB = 6 GB just for
+    // terser, plus the module graph, pushing peak RSS past what memory-
+    // constrained hosts (7 GB available) can sustain → SIGKILL. `NEXT_BUILD_CPUS`
+    // overrides; local dev machines with more RAM can leave it on the default
+    // (os.cpus().length) by not setting the env var.
+    cpus: Number(process.env.NEXT_BUILD_CPUS) || Math.max(1, Math.floor(require('os').availableParallelism?.() ?? require('os').cpus().length) / 2),
     // Next.js proxy (middleware) has a default 10MB body clone limit. File
     // uploads (OpenAI-compatible /v1/files) routinely exceed this. Match the
     // 512 MB server-side cap; tune via env if needed.

@@ -167,15 +167,25 @@ ENV OMNIROUTE_MITM_STUB=1
 # Raise the V8 heap ceiling for the build. The webpack production optimization
 # pass peaks at ~3.9 GB V8 heap for a codebase this size, and the standalone
 # verification step that follows (loading @huggingface/transformers + onnxruntime-node)
-# adds more on top — a 4 GB ceiling is too tight and the build gets OOM-killed
-# silently during the production pass (exit code 255/137, log cuts off at
-# "Creating an optimized production build ..."). 8 GB gives headroom. NODE_OPTIONS
-# propagates to the spawned `next build` child (build-next-isolated.mjs →
-# resolveNextBuildEnv spreads process.env). Build-only; the runtime heap is set
-# separately on the runner stage (OMNIROUTE_MEMORY_MB). Override:
-# `--build-arg OMNIROUTE_BUILD_MEMORY_MB=6144`.
-ARG OMNIROUTE_BUILD_MEMORY_MB=8192
+# adds more on top. NODE_OPTIONS propagates to the spawned `next build` child
+# (build-next-isolated.mjs → resolveNextBuildEnv spreads process.env).
+# Build-only; the runtime heap is set separately on the runner stage
+# (OMNIROUTE_MEMORY_MB). Override: `--build-arg OMNIROUTE_BUILD_MEMORY_MB=6144`.
+#
+# 6 GB heap + 2 parallel workers (NEXT_BUILD_CPUS below) keeps peak RSS under
+# what a 14-15 GB host with ~7 GB available can sustain. The previous 8 GB heap
+# plus 12 parallel terser workers (one per CPU) overshot available RAM and the
+# kernel OOM-killed the build worker (SIGKILL, exit code 137/255) after ~7 min.
+ARG OMNIROUTE_BUILD_MEMORY_MB=6144
 ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
+
+# Limit webpack/terser build parallelism. With 12 cores the default spawns 12
+# parallel terser workers (~500 MB each = 6 GB) on top of the module graph,
+# exceeding available RAM on memory-constrained hosts → OOM SIGKILL. 2 workers
+# keeps peak RSS bounded; override with `--build-arg NEXT_BUILD_CPUS=4` on
+# machines with more RAM.
+ARG NEXT_BUILD_CPUS=2
+ENV NEXT_BUILD_CPUS=${NEXT_BUILD_CPUS}
 
 COPY . ./
 RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-next-cache,target=/app/.build/next/cache \
