@@ -127,12 +127,19 @@ RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-npm-cache,targe
 # See docs/ops/QUALITY_GATE_PLAYBOOK.md Parte 6.
 #
 # Declared as ARG+ENV, not a bare ENV: a bare ENV shadows any same-named ARG for
-# the rest of the stage, so `--build-arg OMNIROUTE_USE_TURBOPACK=0` was silently
-# ignored and the escape hatch above only ever worked via `-e` at runtime, never
-# at build time. Turbopack compiles in native Rust memory that lives outside the
-# V8 heap, so OMNIROUTE_BUILD_MEMORY_MB cannot bound it and a memory-constrained
-# build host gets SIGKILLed by the cgroup OOM killer with no error message.
-ARG OMNIROUTE_USE_TURBOPACK=1
+# the rest of the stage, so `--build-arg OMNIROUTE_USE_TURBOPACK=1` would be
+# silently ignored and the escape hatch only ever worked via `-e` at runtime,
+# never at build time.
+#
+# Default is webpack (0), not Turbopack (1): Turbopack compiles in native Rust
+# memory that lives outside the V8 heap, so OMNIROUTE_BUILD_MEMORY_MB cannot
+# bound it and a memory-constrained build host gets SIGKILLed by the cgroup OOM
+# killer with no error message (exit code 1, log cuts off at "Creating an
+# optimized production build ..."). webpack's whole compilation runs inside V8,
+# so the --max-old-space-size ceiling actually holds and the build completes on
+# a 4 GB box. Override with `--build-arg OMNIROUTE_USE_TURBOPACK=1` on a machine
+# with headroom for Turbopack's native memory.
+ARG OMNIROUTE_USE_TURBOPACK=0
 ENV OMNIROUTE_USE_TURBOPACK="${OMNIROUTE_USE_TURBOPACK}"
 
 # Next.js basePath is fixed at build time; pass OMNIROUTE_BASE_PATH here when the
